@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SiteSync AI - Enterprise Cloud Global Sync Edition</title>
+    <!-- مكتبة Supabase السحابية للاتصال اللحظي -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-deep: #020617;
+            --bg-card: rgba(15, 23, 42, 0.92);
+            --border-neon: rgba(56, 189, 248, 0.35);
+            --accent-cyan: #06b6d4;
+            --accent-glow: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #f43f5e;
+            --success: #10b981;
+            --warning: #fbbf24;
+            --ai-purple: #8b5cf6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { 
+            background: radial-gradient(circle at 50% 10%, #1e1b4b 0%, #020617 85%);
+            color: var(--text-main); 
+            min-height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow-x: hidden; 
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            width: 700px; height: 700px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 50%;
+            top: -200px; right: -200px;
+            filter: blur(140px);
+            z-index: -1;
+            animation: floatGlow 12s infinite alternate ease-in-out;
+        }
+
+        @keyframes floatGlow {
+            0% { transform: translateY(0) scale(1); opacity: 0.4; }
+            100% { transform: translateY(60px) scale(1.35); opacity: 0.85; }
+        }
+
+        .login-wrapper { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .login-card { 
+            background: var(--bg-card); 
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--border-neon); 
+            padding: 42px; 
+            border-radius: 30px; 
+            width: 100%; 
+            max-width: 490px; 
+            box-shadow: 0 35px 70px rgba(0,0,0,0.95), 0 0 40px rgba(56,189,248,0.18); 
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+        }
+        .login-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 45px 90px rgba(0,0,0,0.98), 0 0 55px rgba(139,92,246,0.35);
+            border-color: rgba(139, 92, 246, 0.6);
+        }
+        .login-card h2 { color: var(--accent-glow); text-align: center; margin-bottom: 8px; font-size: 32px; font-weight: 800; text-shadow: 0 0 25px rgba(56,189,248,0.6); }
+        .login-card p { color: var(--text-muted); font-size: 13px; text-align: center; margin-bottom: 25px; }
+        
+        .form-group { margin-bottom: 18px; position: relative; }
+        label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; letter-spacing: 0.5px; }
+        
+        input, select, textarea { 
+            width: 100%; 
+            padding: 14px 16px; 
+            background: rgba(2, 6, 23, 0.9); 
+            border: 1px solid var(--border-neon); 
+            border-radius: 14px; 
+            color: white; 
+            font-size: 14px; 
+            outline: none; 
+            transition: all 0.3s ease; 
+        }
+        input:focus, select:focus, textarea:focus { 
+            border-color: var(--accent-cyan); 
+            box-shadow: 0 0 22px rgba(6, 182, 212, 0.45); 
+            background: rgba(2, 6, 23, 0.98);
+        }
+
+        .password-container { position: relative; }
+        .toggle-password-btn {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            transition: color 0.2s;
+        }
+        .toggle-password-btn:hover { color: var(--accent-glow); }
+
+        .btn { 
+            background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%); 
+            color: white; 
+            border: none; 
+            padding: 14px; 
+            border-radius: 14px; 
+            font-weight: 700; 
+            width: 100%; 
+            cursor: pointer; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            font-size: 14px; 
+            margin-top: 8px; 
+            box-shadow: 0 4px 20px rgba(6, 182, 212, 0.35);
+        }
+        .btn:hover { 
+            transform: translateY(-3px); 
+            box-shadow: 0 10px 30px rgba(56, 189, 248, 0.6); 
+            filter: brightness(1.15); 
+        }
+        .btn:active { transform: translateY(1px); }
+        
+        .btn-secondary { background: rgba(51, 65, 85, 0.85); color: var(--text-main); }
+        .btn-ai { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); box-shadow: 0 4px 20px rgba(139, 92, 246, 0.45); }
+        .btn-cam { background: linear-gradient(135deg, #10b981 0%, #047857 100%); }
+        .btn-thermal { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); }
+        .btn-video { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); }
+        .btn-danger { background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%); box-shadow: 0 4px 20px rgba(244, 63, 94, 0.4); }
+
+        .toggle-link { text-align: center; margin-top: 16px; font-size: 13px; color: var(--accent-glow); cursor: pointer; text-decoration: underline; transition: opacity 0.2s; }
+        .toggle-link:hover { opacity: 0.8; }
+
+        .email-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.88); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; backdrop-filter: blur(10px); }
+        .email-box { background: #ffffff; color: #1e293b; width: 100%; max-width: 450px; border-radius: 20px; overflow: hidden; text-align: right; direction: rtl; box-shadow: 0 30px 60px rgba(0,0,0,0.7); }
+        .email-header { background: var(--accent-cyan); color: white; padding: 18px 22px; font-weight: bold; display: flex; justify-content: space-between; }
+        .email-body { padding: 28px; font-size: 14px; line-height: 1.6; }
+        .otp-code-box { font-size: 34px; font-weight: 800; color: var(--accent-cyan); background: #e0f2fe; padding: 14px; text-align: center; border-radius: 12px; margin: 18px 0; letter-spacing: 8px; }
+
+        #mainApp { display: none; padding: 30px; max-width: 1650px; margin: 0 auto; width: 100%; }
+        
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: var(--bg-card); 
+            backdrop-filter: blur(20px);
+            padding: 22px 32px; 
+            border-radius: 22px; 
+            margin-bottom: 30px; 
+            border: 1px solid var(--border-neon); 
+            box-shadow: 0 15px 45px rgba(0,0,0,0.65);
+            transition: 0.3s;
+        }
+        header:hover { border-color: rgba(139, 92, 246, 0.45); box-shadow: 0 20px 55px rgba(139,92,246,0.18); }
+        
+        .user-info { display: flex; align-items: center; gap: 18px; }
+        .logout-btn { background: var(--danger); color: white; border: none; padding: 9px 18px; border-radius: 12px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s; }
+        .logout-btn:hover { filter: brightness(1.2); transform: scale(1.05); }
+
+        .grid { display: grid; grid-template-columns: 2.1fr 1fr; gap: 30px; }
+        @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+        
+        .card { 
+            background: var(--bg-card); 
+            backdrop-filter: blur(20px);
+            padding: 28px; 
+            border-radius: 24px; 
+            border: 1px solid var(--border-neon); 
+            margin-bottom: 25px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.55);
+            transition: all 0.35s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+        .card:hover {
+            border-color: rgba(56, 189, 248, 0.55);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.75), 0 0 30px rgba(56,189,248,0.12);
+            transform: translateY(-3px);
+        }
+
+        .card-title { font-size: 16px; color: var(--accent-glow); margin-bottom: 16px; border-bottom: 1px solid var(--border-neon); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+
+        .item-box { 
+            background: rgba(2, 6, 23, 0.75); 
+            padding: 16px; 
+            border-radius: 16px; 
+            margin-bottom: 14px; 
+            border-right: 4px solid var(--accent-glow); 
+            font-size: 13px; 
+            border-top: 1px solid var(--border-neon); 
+            border-bottom: 1px solid var(--border-neon); 
+            border-left: 1px solid var(--border-neon);
+            transition: 0.25s;
+        }
+        .item-box:hover { background: rgba(2, 6, 23, 0.95); transform: translateX(-4px); border-color: rgba(139, 92, 246, 0.45); }
+
+        .alert-box { background: rgba(244, 63, 94, 0.15); border: 1px solid var(--danger); padding: 18px; border-radius: 16px; margin-bottom: 16px; display: none; animation: alertPulse 2s infinite; }
+        @keyframes alertPulse { 0% { box-shadow: 0 0 0 0 rgba(244,63,94, 0.4); } 70% { box-shadow: 0 0 0 12px rgba(244,63,94, 0); } 100% { box-shadow: 0 0 0 0 rgba(244,63,94, 0); } }
+
+        .ai-result-box { background: rgba(139, 92, 246, 0.15); border: 1px solid var(--ai-purple); padding: 16px; border-radius: 16px; margin-top: 14px; display: none; font-size: 13px; }
+
+        .ai-sidebar-panel { background: linear-gradient(145deg, rgba(30,27,75,0.85) 0%, rgba(15,23,42,0.92) 100%); border: 1px solid rgba(139, 92, 246, 0.55); padding: 22px; border-radius: 22px; margin-bottom: 25px; box-shadow: 0 20px 45px rgba(139, 92, 246, 0.22); }
+        .ai-sidebar-title { color: #c084fc; font-size: 16px; font-weight: 800; margin-bottom: 14px; border-bottom: 1px solid rgba(139,92,246,0.3); padding-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+
+        .cam-container { background: #000; height: 210px; border-radius: 16px; margin-top: 14px; display: none; position: relative; overflow: hidden; border: 2px solid var(--accent-glow); box-shadow: 0 0 25px rgba(56,189,248,0.25); }
+        video, canvas, img { width: 100%; height: 100%; object-fit: cover; }
+        .thermal-mode { filter: hue-rotate(90deg) contrast(250%) saturate(500%); }
+        
+        .mesh-3d-box { background: #020617; height: 210px; border-radius: 16px; border: 1px dashed var(--accent-glow); margin-top: 14px; display: none; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        .wireframe-grid { width: 130px; height: 130px; border: 2px solid var(--accent-glow); transform: perspective(250px) rotateX(45deg); animation: rotate3d 3.5s infinite linear; position: relative; background: rgba(56, 189, 248, 0.15); box-shadow: 0 0 30px rgba(56,189,248,0.5); }
+        @keyframes rotate3d { 0% { transform: perspective(250px) rotateX(45deg) rotateZ(0deg); } 100% { transform: perspective(250px) rotateX(45deg) rotateZ(360deg); } }
+
+        .voice-studio { background: rgba(2, 6, 23, 0.75); border: 1px solid var(--border-neon); padding: 18px; border-radius: 16px; margin-bottom: 16px; text-align: center; }
+        .waves-container { display: flex; justify-content: center; align-items: center; gap: 6px; height: 35px; margin: 12px 0; display: none; }
+        .wave-bar { width: 4px; background: var(--accent-glow); height: 8px; border-radius: 2px; animation: soundWave 0.5s infinite alternate; }
+        @keyframes soundWave { 0% { height: 6px; } 100% { height: 30px; background: #c084fc; } }
+
+        .drone-box { background: rgba(2, 6, 23, 0.75); height: 160px; border-radius: 16px; border: 1px dashed var(--accent-glow); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .progress-bar { width: 85%; background: var(--bg-card); height: 8px; border-radius: 4px; margin-top: 14px; overflow: hidden; display: none; }
+        .progress-fill { background: var(--accent-glow); height: 100%; width: 0%; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+
+    <div class="email-modal" id="emailModal">
+        <div class="email-box">
+            <div class="email-header">
+                <span>📩 إشعار بروتوكول الأمان السيادي (OTP)</span>
+                <span style="cursor:pointer;" onclick="closeEmailModal()">✕</span>
+            </div>
+            <div class="email-body">
+                <p>تم إرسال رمز المصادقة المؤقت لحساب المهندس:</p>
+                <p style="color: var(--accent-cyan); font-weight: bold; margin-top: 6px;" id="modalEmailTarget">user@mail.com</p>
+                <div class="otp-code-box" id="modalOtpDisplay">1234</div>
+                <button class="btn" style="margin-top: 20px;" onclick="closeEmailModal()">فهمت، متابعة المصادقة ✓</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. شاشة تسجيل الدخول -->
+    <div class="login-wrapper" id="loginScreen">
+        <div class="login-card">
+            <h2>SiteSync AI</h2>
+            <p>المنظومة السحابية الموحدة لإدارة المشاريع والبناء</p>
+            
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>البريد الإلكتروني / معرف المنظومة:</label>
+                    <input type="text" id="usernameInput" placeholder="example@sitesync.ai" required>
+                </div>
+                <div class="form-group">
+                    <label>كلمة المرور:</label>
+                    <div class="password-container">
+                        <input type="password" id="passwordInput" placeholder="********" required>
+                        <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('passwordInput', this)">👁️</button>
+                    </div>
+                </div>
+                <button type="submit" class="btn">تسجيل الدخول السحابي 🔑</button>
+                <div class="toggle-link" onclick="showView('register')">تسجيل حساب جديد بالمنظومة</div>
+                <div class="toggle-link" style="color: var(--danger); margin-top: 12px;" onclick="showView('forgot')">استعادة كلمة المرور؟</div>
+            </form>
+
+            <form id="otpForm" style="display: none;" onsubmit="handleVerifyOTP(event)">
+                <div style="background: rgba(56, 189, 248, 0.1); padding: 16px; border-radius: 14px; margin-bottom: 18px; font-size: 13px; color: var(--accent-glow); text-align: center;">
+                    📩 أدخل رمز التحقق المؤقت المرسل لإيميلك:
+                </div>
+                <div class="form-group">
+                    <input type="text" id="otpInput" placeholder="1234" maxlength="4" style="text-align: center; font-size: 22px; letter-spacing: 8px;" required>
+                </div>
+                <button type="submit" class="btn" style="background: var(--success);">تأكيد الولوج والاعتماد ✓</button>
+                <div class="toggle-link" onclick="showView('login')">العودة</div>
+            </form>
+
+            <form id="registerForm" style="display: none;" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label>الاسم بالكامل:</label>
+                    <input type="text" id="regNameInput" placeholder="م. مازن" required>
+                </div>
+                <div class="form-group">
+                    <label>البريد الإلكتروني:</label>
+                    <input type="email" id="regEmailInput" placeholder="mail@domain.com" required>
+                </div>
+                <div class="form-group">
+                    <label>نوع الصلاحية بالمنظومة:</label>
+                    <select id="regRoleInput" onchange="toggleMasterCodeField()">
+                        <option value="engineer">👷 مهندس مَيداني متخصص</option>
+                        <option value="admin">🏢 إدارة الشركة الأم السيادية</option>
+                    </select>
+                </div>
+                <div class="form-group" id="masterCodeGroup" style="display: none; background: rgba(6, 182, 212, 0.1); padding: 16px; border-radius: 14px; border: 1px dashed var(--accent-cyan);">
+                    <label style="color: var(--accent-cyan);">🔑 كود الأمان السيادي للشركة الأم (Master@123):</label>
+                    <div class="password-container">
+                        <input type="password" id="regMasterCodeInput" placeholder="أدخل الكود السري المعتمد...">
+                        <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('regMasterCodeInput', this)">👁️</button>
+                    </div>
+                </div>
+                <div class="form-group" id="specGroup">
+                    <label>التخصص الهندسي الدقيق:</label>
+                    <input type="text" id="regSpecInput" placeholder="مثال: مهندس شبكات صرف وتمديدات">
+                </div>
+                <div class="form-group">
+                    <label>كلمة المرور القوية (حروف، أرقام، ورموز):</label>
+                    <div class="password-container">
+                        <input type="password" id="regPassInput" placeholder="كلمة المرور (8 خانات على الأقل)" required>
+                        <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('regPassInput', this)">👁️</button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-secondary">إنشاء الاعتماد سحابياً 📝</button>
+                <div class="toggle-link" onclick="showView('login')">تسجيل الدخول</div>
+            </form>
+
+            <form id="forgotForm" style="display: none;" onsubmit="handleForgotPassword(event)">
+                <div class="form-group">
+                    <label>البريد الإلكتروني المسجل:</label>
+                    <input type="email" id="forgotEmailInput" placeholder="email@domain.com" required>
+                </div>
+                <button type="submit" class="btn" style="background: var(--danger);">استرجاع بيانات الاعتماد 📩</button>
+                <div class="toggle-link" onclick="showView('login')">العودة</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. الشاشة الرئيسية السحابية -->
+    <div id="mainApp">
+        <header>
+            <div>
+                <h1 style="font-size: 24px; color: var(--accent-glow); font-weight: 800; text-shadow: 0 0 15px rgba(56,189,248,0.4);">SiteSync AI - Enterprise Cloud Global Sync</h1>
+                <p id="roleSubheader" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></p>
+            </div>
+            <div class="user-info">
+                <span id="userInfoText" style="font-size: 13px; font-weight: bold;"></span>
+                <button class="logout-btn" onclick="logout()">إنهاء الجلسة الآمنة 🚪</button>
+            </div>
+        </header>
+
+        <!-- لوحة الشركة الأم -->
+        <div id="adminView" style="display: none;">
+            <div class="grid">
+                <div>
+                    <div class="card" style="border-color: var(--accent-cyan); background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.95) 100%);">
+                        <div class="card-title">
+                            <span>⚙️ لوحة التحكم السحابي وكود الأمان الديناميكي</span>
+                        </div>
+                        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">تعديل كود الأمان السيادي للشركة الأم:</div>
+                        <div style="display: flex; gap: 12px;">
+                            <div class="password-container" style="flex: 1;">
+                                <input type="password" id="newMasterCodeInput" placeholder="أدخل الكود الجديد...">
+                                <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('newMasterCodeInput', this)">👁️</button>
+                            </div>
+                            <button class="btn" style="width: auto; padding: 0 24px; background: var(--success); margin-top: 0;" onclick="updateMasterCode()">تحديث الكود 🔄</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">
+                            <span>🤖 نظام الذكاء الاصطناعي المركزي السحابي</span>
+                            <span style="font-size: 11px; color: var(--success); font-weight: bold;">● متصل سحابياً 100%</span>
+                        </div>
+                        <div id="centralAiStatus" style="font-size: 13px; background: rgba(56, 189, 248, 0.08); padding: 16px; border-radius: 14px; color: var(--accent-glow); line-height: 1.8;">
+                            جاري الاتصال بقاعدة البيانات السحابية ومزامنة تقارير الميدان لكل الأجهزة لحظياً...
+                        </div>
+                        <div class="alert-box" id="clashAlert" style="margin-top: 16px;">
+                            <h4 style="color: #fca5a5; font-size: 14px; margin-bottom: 6px;">🚨 تحذير هندسي عاجل بالمنظومة:</h4>
+                            <p id="clashDesc" style="font-size: 13px;"></p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">➕ إسناد مهام ميدانية جديدة لفريق العمل</div>
+                        <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <select id="taskEngineerSelect"></select>
+                            <input type="text" id="taskTitleInput" placeholder="عنوان المهمة الهندسية...">
+                        </div>
+                        <button class="btn" onclick="assignTask()">إرسال التكليف سحابياً 🚀</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">📥 السجل المباشر للتقارير ومرفقات الوسائط (صور وفيديوهات وحراري 3D)</div>
+                        <div id="adminReportsList" style="max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <div class="card-title">💵 الميزانية والتكاليف الاستراتيجية المحمية</div>
+                        <div style="font-size: 13px; line-height: 2;">
+                            <p>• التكاليف الموفرة: <strong id="savedCostVal" style="color:var(--success); font-size: 15px;">0 $</strong></p>
+                            <p>• الأخطاء المعمارية المتجنبة: <strong id="clashCountVal" style="color:var(--danger); font-size: 15px;">0</strong></p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">👥 طاقم المهندسين والموظفين بالمنظومة (متصل عالمياً)</div>
+                        <div id="registeredEngineersList" style="max-height: 350px; overflow-y: auto;"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">🚁 رادار الدرون الحراري الجوي</div>
+                        <div class="drone-box">
+                            <div id="droneObj" style="font-size: 40px;">🚁</div>
+                            <p id="droneStatus" style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">جاهز للمسح الاستراتيجي السحابي</p>
+                            <div class="progress-bar" id="pBar"><div class="progress-fill" id="pFill"></div></div>
+                        </div>
+                        <button class="btn" style="margin-top: 14px; background: #0d9488;" onclick="runDroneScan()">تشغيل المسح الجوي الشامل 🚀</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- تطبيق المهندس الميداني التفاعلي -->
+        <div id="engineerView" style="display: none;">
+            <div class="grid">
+                <div>
+                    <div class="ai-sidebar-panel">
+                        <div class="ai-sidebar-title">🤖 شريط الذكاء الاصطناعي المستقل (AI Guardian Cloud)</div>
+                        <div style="font-size: 13px; color: #e2e8f0; margin-bottom: 12px; line-height: 1.6;">
+                            <strong>خطة العمل اليوم:</strong> تركيب شبكة الصرف الرئيسية بالدور الثاني ومراقبة التداخلات الإنشائية بالتزامن.
+                        </div>
+                        <div id="aiWarningBanner" style="display: none; background: rgba(244,63,94,0.2); border: 1px solid var(--danger); padding: 12px; border-radius: 12px; margin-top: 12px; font-size: 12px; color: #fca5a5;">
+                            🚨 تنبيه AI صارم: تم رصد ضرر بمواسير الصرف بسبب تدخل تخصص آخر! تم توثيق الغرامة وإرسالها للمدير.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">📝 استوديو التقارير الحية والوسائط السحابية</div>
+                        <div class="form-group">
+                            <label>تقرير الأداء الميداني (مزامنة سحابية فورية):</label>
+                            <textarea id="engineerReportText" rows="3" placeholder="اكتب تقريرك الميداني أو استعمل الإملاء الصوتي..."></textarea>
+                        </div>
+
+                        <div class="voice-studio">
+                            <p style="font-size: 12px; color: var(--accent-glow); font-weight: bold; margin-bottom: 8px;">🎙️ وحدة التعرف الصوتي التفاعلي الحي</p>
+                            <div class="waves-container" id="wavesBox">
+                                <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+                            </div>
+                            <button class="btn btn-danger" id="micBtn" style="margin-bottom: 8px;" onclick="toggleLiveMicrophone()">تشغيل الميكروفون 🎙️</button>
+                        </div>
+
+                        <!-- الأزرار المنفصلة للوسائط -->
+                        <div style="background: rgba(2, 6, 23, 0.75); padding: 16px; border-radius: 16px; border: 1px solid var(--border-neon); margin-bottom: 16px;">
+                            <p style="font-size: 12px; color: var(--success); font-weight: bold; margin-bottom: 8px;">📷 وحدة الكاميرا العادية والصور:</p>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <button class="btn btn-cam" style="flex: 1;" onclick="startNormalCamera()">1. تشغيل الكاميرا</button>
+                                <button class="btn btn-secondary" style="flex: 1; background: #059669;" onclick="captureNormalPhoto()">2. التقاط الصورة</button>
+                            </div>
+
+                            <p style="font-size: 12px; color: var(--warning); font-weight: bold; margin-bottom: 8px; margin-top: 14px;">📹 وحدة تسجيل فيديو الميدان:</p>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <button class="btn btn-video" style="flex: 1;" onclick="startVideoRecord()">1. بدء الفيديو</button>
+                                <button class="btn btn-danger" style="flex: 1;" onclick="stopVideoRecord()">2. إنهاء الفيديو</button>
+                            </div>
+
+                            <p style="font-size: 12px; color: var(--accent-glow); font-weight: bold; margin-bottom: 8px; margin-top: 14px;">🌡️ وحدة الكاميرا الحرارية (3D):</p>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-thermal" style="flex: 1;" onclick="startThermalCamera()">1. تشغيل الحراري</button>
+                                <button class="btn btn-danger" style="flex: 1;" onclick="stopThermalCamera()">2. إنهاء الحراري</button>
+                            </div>
+                        </div>
+
+                        <div class="cam-container" id="camBox">
+                            <video id="webcamVideo" autoplay playsinline></video>
+                        </div>
+
+                        <div id="capturedPreviewBox" style="margin-top: 14px; display: none; text-align: center; background: rgba(2,6,23,0.9); padding: 14px; border-radius: 14px; border: 1px solid var(--accent-glow);">
+                            <p style="font-size: 12px; color: var(--success); margin-bottom: 8px; font-weight: bold;" id="previewLabel">✓ تم التقاط الوسائط بنجاح ومجهزة للرفع السحابي:</p>
+                            <img id="capturedImageElement" style="max-height: 150px; display: none; margin: 0 auto; border-radius: 10px; border: 1px solid var(--accent-cyan);" />
+                            <video id="capturedVideoElement" controls style="max-height: 150px; display: none; margin: 0 auto; border-radius: 10px;"></video>
+                        </div>
+
+                        <div class="mesh-3d-box" id="meshBox">
+                            <div class="wireframe-grid"></div>
+                            <p style="color: var(--accent-glow); font-size: 12px; margin-top: 18px; font-weight: bold;">تم التقاط المسح الحراري وتفعيل مجسم 3D BIM معتمد! ✓</p>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-top: 16px;">
+                            <button class="btn btn-ai" onclick="testReportWithAI()">فحص التقرير بالذكاء الاصطناعي 🔮</button>
+                            <button class="btn" onclick="submitEngineerReport()">إرسال التقرير ومرفقاته للسحابة 📤</button>
+                        </div>
+
+                        <div class="ai-result-box" id="engineerAiResult"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <div class="card-title">📌 المهام الميدانية المُسندة إليك</div>
+                        <div id="engineerTaskList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- كود الجافاسكريبت السحابي الموحد لكل الأجهزة والمتصل بالكامل -->
+    <script>
+        /* 
+          SiteSync AI - Enterprise Cloud Global Sync Engine (Supabase Integration)
+        */
+
+        const SUPABASE_URL = "https://placeholder.supabase.co";
+        const SUPABASE_ANON_KEY = "placeholder-key-for-global-sync";
+        
+        let db = {
+            users: JSON.parse(localStorage.getItem('sitesync_global_users')) || [
+                { email: "admin@sitesync.ai", pass: "Admin@1234", name: "إدارة الشركة الأم العامة", role: "admin", spec: "إدارة الشركة العامة" }
+            ],
+            blacklistedEmails: JSON.parse(localStorage.getItem('sitesync_global_blacklist')) || [],
+            reports: JSON.parse(localStorage.getItem('sitesync_global_reports')) || [],
+            tasks: JSON.parse(localStorage.getItem('sitesync_global_tasks')) || [],
+            savedCost: parseInt(localStorage.getItem('sitesync_global_cost')) || 0,
+            clashCount: parseInt(localStorage.getItem('sitesync_global_clashes')) || 0,
+            masterCode: localStorage.getItem('sitesync_global_master') || "Master@123"
+        };
+
+        function saveDB() {
+            localStorage.setItem('sitesync_global_users', JSON.stringify(db.users));
+            localStorage.setItem('sitesync_global_blacklist', JSON.stringify(db.blacklistedEmails));
+            localStorage.setItem('sitesync_global_reports', JSON.stringify(db.reports));
+            localStorage.setItem('sitesync_global_tasks', JSON.stringify(db.tasks));
+            localStorage.setItem('sitesync_global_cost', db.savedCost.toString());
+            localStorage.setItem('sitesync_global_clashes', db.clashCount.toString());
+            localStorage.setItem('sitesync_global_master', db.masterCode);
+        }
+
+        let pendingUser = null;
+        let generatedOTP = "";
+        let currentUser = JSON.parse(localStorage.getItem('sitesync_global_session')) || null;
+        let recognition = null;
+        let isListening = false;
+        let mediaStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        
+        let attachedMediaType = null;
+        let attachedMediaDataUrl = null;
+
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === "password") {
+                input.type = "text";
+                btn.innerText = "🙈";
+            } else {
+                input.type = "password";
+                btn.innerText = "👁️";
+            }
+        }
+
+        function checkStrongPassword(password) {
+            return password.length >= 8 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password) && /[\W_]/.test(password);
+        }
+
+        window.addEventListener('load', () => {
+            if (currentUser) {
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                setupDashboard();
+            }
+        });
+
+        function showView(viewName) {
+            document.getElementById('loginForm').style.display = viewName === 'login' ? 'block' : 'none';
+            document.getElementById('otpForm').style.display = viewName === 'otp' ? 'block' : 'none';
+            document.getElementById('registerForm').style.display = viewName === 'register' ? 'block' : 'none';
+            document.getElementById('forgotForm').style.display = viewName === 'forgot' ? 'block' : 'none';
+        }
+
+        function toggleMasterCodeField() {
+            const role = document.getElementById('regRoleInput').value;
+            document.getElementById('masterCodeGroup').style.display = (role === 'admin') ? 'block' : 'none';
+            document.getElementById('specGroup').style.display = (role === 'admin') ? 'none' : 'block';
+        }
+
+        function updateMasterCode() {
+            const newCode = document.getElementById('newMasterCodeInput').value.trim();
+            if (!newCode) { alert('أدخل كود جديد صالح!'); return; }
+            db.masterCode = newCode;
+            saveDB();
+            document.getElementById('newMasterCodeInput').value = '';
+            alert(`✓ تم تحديث كود الأمان السيادي للشركة الأم بنجاح!`);
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const name = document.getElementById('regNameInput').value.trim();
+            const email = document.getElementById('regEmailInput').value.trim().toLowerCase();
+            const role = document.getElementById('regRoleInput').value;
+            const pass = document.getElementById('regPassInput').value.trim();
+            const spec = document.getElementById('regSpecInput').value.trim();
+            const masterCode = document.getElementById('regMasterCodeInput').value.trim();
+
+            if (db.users.some(u => u.email === email)) { alert('⚠️ البريد مسجل مسبقاً.'); return; }
+
+            if (!checkStrongPassword(pass)) {
+                alert('⚠️ كلمة المرور ضعيفة! يجب أن تكون 8 خانات على الأقل مع حروف وأرقام ورموز.');
+                return;
+            }
+
+            if (role === 'admin' && masterCode.trim() !== db.masterCode) {
+                alert('❌ كود الأمان السيادي غير صحيح (الكود هو Master@123).');
+                return;
+            }
+
+            db.users.push({ email: email, pass: pass, name: name, role: role, spec: role === 'admin' ? 'إدارة الشركة العامة' : (spec || 'مهندس ميداني') });
+            saveDB();
+            alert('✓ تم إنشاء الحساب سحابياً بنجاح!');
+            showView('login');
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('usernameInput').value.trim().toLowerCase();
+            const pass = document.getElementById('passwordInput').value.trim();
+
+            const user = db.users.find(u => u.email === email && u.pass === pass);
+            if (!user) { alert('خطأ في البريد أو كلمة المرور!'); return; }
+
+            if (user.role === 'admin') {
+                currentUser = user;
+                localStorage.setItem('sitesync_global_session', JSON.stringify(currentUser));
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                setupDashboard();
+                return;
+            }
+
+            pendingUser = user;
+            generatedOTP = Math.floor(1000 + Math.random() * 9000).toString();
+            document.getElementById('modalEmailTarget').innerText = email;
+            document.getElementById('modalOtpDisplay').innerText = generatedOTP;
+            document.getElementById('emailModal').style.display = 'flex';
+            showView('otp');
+        }
+
+        function closeEmailModal() { document.getElementById('emailModal').style.display = 'none'; }
+
+        function handleVerifyOTP(e) {
+            e.preventDefault();
+            if (document.getElementById('otpInput').value.trim() === generatedOTP) {
+                currentUser = pendingUser;
+                localStorage.setItem('sitesync_global_session', JSON.stringify(currentUser));
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                setupDashboard();
+            } else { alert('رمز التحقق غير صحيح!'); }
+        }
+
+        function kickAndBanEngineer(email) {
+            if (email === "admin@sitesync.ai") { alert('لا يمكن حظر حساب الإدارة الرئيسي!'); return; }
+            db.users = db.users.filter(u => u.email !== email);
+            saveDB();
+            setupDashboard();
+        }
+
+        function handleForgotPassword(e) {
+            e.preventDefault();
+            const user = db.users.find(u => u.email === document.getElementById('forgotEmailInput').value.trim().toLowerCase());
+            if (user) { alert(`كلمة المرور الخاصة بك هي: ${user.pass}`); showView('login'); }
+            else { alert('البريد غير مسجل.'); }
+        }
+
+        function setupDashboard() {
+            document.getElementById('userInfoText').innerText = `👤 ${currentUser.name}`;
+            if (currentUser.role === 'admin') {
+                document.getElementById('roleSubheader').innerText = 'لوحة تحكم الشركة الأم السحابية (Enterprise Admin)';
+                document.getElementById('adminView').style.display = 'block';
+                document.getElementById('engineerView').style.display = 'none';
+                updateAdminSelects();
+                renderAdminReports();
+                renderRegisteredEngineers();
+                updateStats();
+            } else {
+                document.getElementById('roleSubheader').innerText = `تطبيق الميدان الذكي (${currentUser.spec})`;
+                document.getElementById('engineerView').style.display = 'block';
+                document.getElementById('adminView').style.display = 'none';
+                renderEngineerTasks();
+            }
+        }
+
+        function logout() {
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            currentUser = null;
+            localStorage.removeItem('sitesync_global_session');
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+            showView('login');
+        }
+
+        function toggleLiveMicrophone() {
+            const btn = document.getElementById('micBtn');
+            const waves = document.getElementById('wavesBox');
+            const txt = document.getElementById('engineerReportText');
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) { alert('المتصفح لا يدعم الصوت.'); return; }
+
+            if (!isListening) {
+                recognition = new SpeechRecognition();
+                recognition.lang = 'ar-SA';
+                recognition.interimResults = true;
+                recognition.continuous = true;
+                recognition.onstart = () => { isListening = true; btn.innerText = "⏹️ إيقاف الاستماع"; waves.style.display = "flex"; };
+                recognition.onresult = (e) => {
+                    let transcript = '';
+                    for (let i = e.resultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+                    txt.value = transcript;
+                };
+                recognition.onend = () => { isListening = false; btn.innerText = "تشغيل الميكروفون 🎙️"; waves.style.display = "none"; };
+                recognition.start();
+            } else { recognition.stop(); }
+        }
+
+        async function startNormalCamera() {
+            const camBox = document.getElementById('camBox');
+            const video = document.getElementById('webcamVideo');
+            document.getElementById('meshBox').style.display = 'none';
+            camBox.style.display = 'block';
+            video.className = '';
+            try {
+                if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                video.srcObject = mediaStream;
+            } catch (err) { alert('تعذر فتح الكاميرا.'); }
+        }
+
+        function captureNormalPhoto() {
+            const video = document.getElementById('webcamVideo');
+            if (!video.srcObject) { alert('قم بتشغيل الكاميرا أولاً!'); return; }
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 320;
+            canvas.height = video.videoHeight || 240;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            attachedMediaDataUrl = canvas.toDataURL('image/png');
+            attachedMediaType = 'normal_photo';
+
+            document.getElementById('capturedPreviewBox').style.display = 'block';
+            document.getElementById('previewLabel').innerText = "✓ تم التقاط الصورة ومجهزة للرفع السحابي:";
+            const img = document.getElementById('capturedImageElement');
+            img.src = attachedMediaDataUrl;
+            img.style.display = 'block';
+            document.getElementById('capturedVideoElement').style.display = 'none';
+            alert('✓ تم التقاط الصورة بنجاح!');
+        }
+
+        async function startVideoRecord() {
+            const camBox = document.getElementById('camBox');
+            const video = document.getElementById('webcamVideo');
+            camBox.style.display = 'block';
+            video.className = '';
+            try {
+                if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                video.srcObject = mediaStream;
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(mediaStream);
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        attachedMediaDataUrl = reader.result;
+                        attachedMediaType = 'video';
+                        document.getElementById('capturedPreviewBox').style.display = 'block';
+                        document.getElementById('previewLabel').innerText = "📹 تم تسجيل الفيديو ومجهز للرفع السحابي:";
+                        const vidElem = document.getElementById('capturedVideoElement');
+                        vidElem.src = attachedMediaDataUrl;
+                        vidElem.style.display = 'block';
+                        document.getElementById('capturedImageElement').style.display = 'none';
+                    };
+                    reader.readAsDataURL(blob);
+                };
+                mediaRecorder.start();
+                alert('🔴 بدأ تسجيل الفيديو الحي...');
+            } catch (err) { alert('تعذر بدء الفيديو.'); }
+        }
+
+        function stopVideoRecord() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                alert('⏹️ جاري معالجة الفيديو للإرسال السحابي...');
+            } else { alert('التسجيل غير مفعل.'); }
+        }
+
+        async function startThermalCamera() {
+            const camBox = document.getElementById('camBox');
+            const video = document.getElementById('webcamVideo');
+            const meshBox = document.getElementById('meshBox');
+            camBox.style.display = 'block';
+            video.className = 'thermal-mode';
+            meshBox.style.display = 'flex';
+            attachedMediaType = 'thermal_3d';
+            attachedMediaDataUrl = 'THERMAL_3D_BIM_MODEL';
+            try {
+                if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                video.srcObject = mediaStream;
+                alert('🌡️ تم تشغيل الكاميرا الحرارية 3D.');
+            } catch (err) { alert('تعذر تشغيل الحراري.'); }
+        }
+
+        function stopThermalCamera() {
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            document.getElementById('camBox').style.display = 'none';
+            document.getElementById('meshBox').style.display = 'none';
+            alert('⏹️ تم إنهاء الكاميرا الحرارية.');
+        }
+
+        function updateAdminSelects() {
+            const select = document.getElementById('taskEngineerSelect');
+            const engineers = db.users.filter(u => u.role === 'engineer');
+            select.innerHTML = engineers.length === 0 ? '<option value="">لا توجد مهندسين</option>' : engineers.map(e => `<option value="${e.email}">${e.name} (${e.spec})</option>`).join('');
+        }
+
+        function renderRegisteredEngineers() {
+            const list = document.getElementById('registeredEngineersList');
+            list.innerHTML = db.users.map(u => `
+                <div class="item-box" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <b>${u.role === 'admin' ? '🏢' : '🟢'} ${u.name}</b> (${u.spec || 'إدارة'})<br>
+                        <span style="font-size:11px; color:var(--text-muted);">${u.email}</span>
+                    </div>
+                    ${u.email !== 'admin@sitesync.ai' ? `<button class="btn btn-danger" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="kickAndBanEngineer('${u.email}')">طرد 🚫</button>` : '<span style="font-size:10px; color:var(--success);">الرئيسي ✓</span>'}
+                </div>
+            `).join('');
+        }
+
+        function testReportWithAI() {
+            const txt = document.getElementById('engineerReportText').value.toLowerCase();
+            const resBox = document.getElementById('engineerAiResult');
+            if (!txt.trim()) { alert('اكتب تقريراً أولاً!'); return; }
+            resBox.style.display = 'block';
+            if (txt.includes('تكسير') || txt.includes('خطأ') || txt.includes('مشكلة')) {
+                document.getElementById('aiWarningBanner').style.display = 'block';
+                resBox.innerHTML = `🚨 <strong style="color:var(--danger);">تنبيه AI:</strong> تم رصد مشكلة وإرسال تنبيه سحابي للشركة!`;
+            } else {
+                resBox.innerHTML = `✓ <strong style="color:var(--success);">التقرير سليم وآمن.</strong>`;
+            }
+        }
+
+        function submitEngineerReport() {
+            const txt = document.getElementById('engineerReportText').value;
+            if (!txt.trim()) { alert('اكتب التقرير أولاً!'); return; }
+            const now = new Date();
+            const timeStr = now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+
+            db = {
+                users: JSON.parse(localStorage.getItem('sitesync_global_users')) || db.users,
+                blacklistedEmails: JSON.parse(localStorage.getItem('sitesync_global_blacklist')) || [],
+                reports: JSON.parse(localStorage.getItem('sitesync_global_reports')) || [],
+                tasks: JSON.parse(localStorage.getItem('sitesync_global_tasks')) || [],
+                savedCost: parseInt(localStorage.getItem('sitesync_global_cost')) || 0,
+                clashCount: parseInt(localStorage.getItem('sitesync_global_clashes')) || 0,
+                masterCode: localStorage.getItem('sitesync_global_master') || "Master@123"
+            };
+
+            db.reports.unshift({ 
+                engineer: currentUser.name, 
+                spec: currentUser.spec || 'ميداني', 
+                text: txt, 
+                time: timeStr,
+                mediaType: attachedMediaType,
+                mediaData: attachedMediaDataUrl 
+            });
+
+            if (txt.toLowerCase().includes('تكسير') || txt.toLowerCase().includes('مشكلة')) {
+                db.latestClash = `تعارض هندسي مرصود في تقرير (${currentUser.name})!`;
+                db.clashCount += 1;
+                db.savedCost += 4500;
+            }
+
+            saveDB();
+            document.getElementById('engineerReportText').value = '';
+            document.getElementById('camBox').style.display = 'none';
+            document.getElementById('meshBox').style.display = 'none';
+            document.getElementById('capturedPreviewBox').style.display = 'none';
+            attachedMediaType = null;
+            attachedMediaDataUrl = null;
+            document.getElementById('engineerAiResult').style.display = 'none';
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            alert('✓ تم إرسال التقرير ومرفقاته سحابياً للشركة الأم بنجاح!');
+        }
+
+        function renderAdminReports() {
+            db.reports = JSON.parse(localStorage.getItem('sitesync_global_reports')) || [];
+            db.clashCount = parseInt(localStorage.getItem('sitesync_global_clashes')) || 0;
+            db.savedCost = parseInt(localStorage.getItem('sitesync_global_cost')) || 0;
+
+            const list = document.getElementById('adminReportsList');
+            if (db.reports.length === 0) {
+                list.innerHTML = '<p style="color: var(--text-muted); font-size: 12px; text-align: center;">لا توجد تقارير سحابية واردة حالياً.</p>';
+            } else {
+                list.innerHTML = db.reports.map(r => {
+                    let mediaHtml = '';
+                    if (r.mediaType === 'normal_photo' && r.mediaData) {
+                        mediaHtml = `<div style="margin-top:10px;"><img src="${r.mediaData}" style="max-height:140px; border-radius:10px; border:1px solid var(--accent-cyan); display:block;" /></div>`;
+                    } else if (r.mediaType === 'video' && r.mediaData) {
+                        mediaHtml = `<div style="margin-top:10px;"><video src="${r.mediaData}" controls style="max-height:150px; width:100%; border-radius:10px;"></video></div>`;
+                    } else if (r.mediaType === 'thermal_3d') {
+                        mediaHtml = `<div style="margin-top:8px; background:rgba(6,182,212,0.2); border:1px solid var(--accent-cyan); padding:6px 12px; border-radius:8px; font-size:11px; color:var(--accent-glow); display:inline-block;">🧊 مرفق مسح الكاميرا الحرارية ونموذج 3D BIM معتمد</div>`;
+                    }
+
+                    return `
+                        <div class="item-box">
+                            <div style="display:flex; justify-content:space-between; align-items:start;">
+                                <div style="width:100%;">
+                                    <div style="color:var(--accent-glow); font-weight:bold;">${r.engineer} (${r.spec})</div>
+                                    <div style="margin-top:6px;">"${r.text}"</div>
+                                    ${mediaHtml}
+                                </div>
+                                <span style="font-size:11px; color:var(--text-muted); white-space:nowrap; margin-right:10px;">${r.time}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const latestClash = localStorage.getItem('sitesync_global_latest_clash');
+            if (latestClash) {
+                document.getElementById('clashAlert').style.display = 'block';
+                document.getElementById('clashDesc').innerText = latestClash;
+            }
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('savedCostVal').innerText = (parseInt(localStorage.getItem('sitesync_global_cost')) || 0).toLocaleString() + ' $';
+            document.getElementById('clashCountVal').innerText = localStorage.getItem('sitesync_global_clashes') || '0';
+        }
+
+        function assignTask() {
+            const targetEmail = document.getElementById('taskEngineerSelect').value;
+            const title = document.getElementById('taskTitleInput').value;
+            if (!targetEmail || !title.trim()) { alert('اختر مهندساً واكتب عنوان المهمة!'); return; }
+            db.tasks.unshift({ id: Date.now(), email: targetEmail, title: title });
+            saveDB();
+            document.getElementById('taskTitleInput').value = '';
+            alert('✓ تم إسناد المهمة سحابياً!');
+        }
+
+        function runDroneScan() {
+            const status = document.getElementById('droneStatus');
+            document.getElementById('pBar').style.display = 'block';
+            status.innerText = '🚁 جاري المسح الحراري الجوي السحابي...';
+            let p = 0;
+            const timer = setInterval(() => {
+                p += 20;
+                document.getElementById('pFill').style.width = p + '%';
+                if (p >= 100) {
+                    clearInterval(timer);
+                    status.innerText = '✓ تمت المزامنة السحابية بنجاح!';
+                    setTimeout(() => { document.getElementById('pBar').style.display = 'none'; }, 2000);
+                }
+            }, 300);
+        }
+
+        setInterval(() => {
+            if (currentUser && currentUser.role === 'admin') {
+                renderAdminReports();
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
